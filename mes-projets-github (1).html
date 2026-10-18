@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes projets GitHub</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#eef1f4;--surface:#fff;--ink:#14213d;--muted:#5b6578;--line:#d3d9e2;--accent:#f2b705;--accent-ink:#14213d}
+@media (prefers-color-scheme:dark){:root{--bg:#10151f;--surface:#18202e;--ink:#e8ecf3;--muted:#98a3b8;--line:#2a3447;--accent:#f2b705;--accent-ink:#14213d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.5}
+main{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:clamp(2rem,6vw,3.4rem);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:0 0 8px}
+.sub{color:var(--muted);margin:0 0 28px}
+form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+input,select,button{font:inherit;color:inherit}
+input[type=text],select{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-width:0}
+#user{flex:1 1 220px}
+button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:10px 18px;font-weight:600;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tools{display:none;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+.tools.on{display:flex}
+.tools input[type=text]{flex:1 1 180px}
+label.chk{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:.95rem}
+.who{display:none;align-items:center;gap:14px;margin-bottom:20px}
+.who.on{display:flex}
+.who img{width:56px;height:56px;border-radius:50%}
+.who b{display:block;font-size:1.15rem}
+.who span{color:var(--muted);font-size:.95rem}
+#list{display:grid;gap:0;border-top:2px solid var(--ink)}
+.repo{display:grid;grid-template-columns:1fr auto;gap:4px 16px;padding:18px 0;border-bottom:1px solid var(--line)}
+.repo h2{margin:0;font-size:1.2rem;font-weight:600}
+.repo h2 a{color:inherit;text-decoration:none;border-bottom:2px solid var(--accent)}
+.repo h2 a:hover{background:var(--accent);color:var(--accent-ink)}
+.repo p{grid-column:1;margin:0;color:var(--muted)}
+.meta{grid-column:1;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.9rem;color:var(--muted)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.side{grid-column:2;grid-row:1 / span 3;text-align:right;font-size:.9rem;color:var(--muted)}
+.side a{display:inline-block;margin-top:6px;color:var(--ink);font-weight:600}
+.tag{border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:.8rem}
+.hide{background:none;border:1px solid var(--line);color:var(--muted);padding:2px 10px;font-size:.85rem;font-weight:400;margin-top:8px}
+.hide:hover{border-color:var(--ink);color:var(--ink)}
+.repo.is-hidden{opacity:.5}
+.msg{padding:28px 0;color:var(--muted)}
+.msg.err{color:#c0392b}
+@media (max-width:560px){.repo{grid-template-columns:1fr}.side{grid-column:1;grid-row:auto;text-align:left}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Mes projets GitHub</h1>
+  <p class="sub">Entrez un nom d’utilisateur pour afficher ses dépôts publics.</p>
+
+  <form id="form">
+    <input type="text" id="user" placeholder="Nom d’utilisateur GitHub" autocomplete="off" required aria-label="Nom d’utilisateur GitHub">
+    <button type="submit">Afficher mes projets</button>
+  </form>
+
+  <div class="who" id="who"></div>
+
+  <div class="tools" id="tools">
+    <input type="text" id="q" placeholder="Rechercher un projet" aria-label="Rechercher">
+    <select id="lang" aria-label="Langage"></select>
+    <select id="sort" aria-label="Tri">
+      <option value="updated">Modifiés récemment</option>
+      <option value="stars">Plus d’étoiles</option>
+      <option value="name">Nom (A–Z)</option>
+      <option value="created">Plus récents</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="forks"> Inclure les forks</label>
+    <label class="chk"><input type="checkbox" id="onlytopic"> Seulement le sujet « portfolio »</label>
+    <label class="chk"><input type="checkbox" id="showhidden"> <span id="hcount">Voir les masqués</span></label>
+  </div>
+
+  <div id="list"><div class="msg">Aucun projet affiché pour l’instant.</div></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = {JavaScript:"#f1e05a",TypeScript:"#3178c6",Python:"#3572a5",HTML:"#e34c26",CSS:"#7957d5",Java:"#b07219",C:"#888","C++":"#f34b7d","C#":"#178600",Go:"#00add8",Rust:"#dea584",PHP:"#4f5d95",Ruby:"#701516",Swift:"#f05138",Kotlin:"#a97bff",Shell:"#89e051",Vue:"#41b883",Dart:"#00b4ab"};
+let repos = [];
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = d => new Date(d).toLocaleDateString("fr-FR", {day:"numeric", month:"short", year:"numeric"});
+const show = (html, err) => { $("list").innerHTML = `<div class="msg ${err ? "err" : ""}">${html}</div>`; };
+
+async function load(user) {
+  show("Chargement…");
+  $("tools").classList.remove("on"); $("who").classList.remove("on");
+  try {
+    const u = await fetch(`https://api.github.com/users/${encodeURIComponent(user)}`);
+    if (u.status === 404) return show(`Aucun utilisateur nommé « ${esc(user)} ». Vérifiez l’orthographe.`, true);
+    if (u.status === 403) return show("Limite de requêtes GitHub atteinte. Réessayez dans une heure.", true);
+    if (!u.ok) return show("GitHub ne répond pas. Réessayez dans un instant.", true);
+    const profile = await u.json();
+
+    repos = [];
+    for (let p = 1; p <= 5; p++) {
+      const r = await fetch(`https://api.github.com/users/${encodeURIComponent(user)}/repos?per_page=100&page=${p}`);
+      if (!r.ok) break;
+      const batch = await r.json();
+      repos.push(...batch);
+      if (batch.length < 100) break;
+    }
+
+    $("who").innerHTML = `<img src="${esc(profile.avatar_url)}" alt=""><div><b>${esc(profile.name || profile.login)}</b><span>${profile.public_repos} dépôts publics · <a href="${esc(profile.html_url)}" style="color:inherit">${esc(profile.login)}</a></span></div>`;
+    $("who").classList.add("on");
+
+    const langs = [...new Set(repos.map(r => r.language).filter(Boolean))].sort();
+    $("lang").innerHTML = `<option value="">Tous les langages</option>` + langs.map(l => `<option>${esc(l)}</option>`).join("");
+    $("onlytopic").checked = repos.some(r => (r.topics || []).includes("portfolio"));
+    $("tools").classList.add("on");
+    try { localStorage.setItem("gh-user", user); } catch (e) {}
+    render();
+  } catch (e) {
+    show("Connexion impossible. Vérifiez votre accès à Internet.", true);
+  }
+}
+
+function appUrl(r) {
+  if (r.has_pages) return `https://${r.owner.login.toLowerCase()}.github.io/${r.name === r.owner.login.toLowerCase() + ".github.io" ? "" : r.name + "/"}`;
+  return `https://htmlpreview.github.io/?https://github.com/${r.full_name}/blob/${r.default_branch}/index.html`;
+}
+
+let hidden = new Set();
+try { hidden = new Set(JSON.parse(localStorage.getItem("gh-hidden") || "[]")); } catch (e) {}
+const saveHidden = () => { try { localStorage.setItem("gh-hidden", JSON.stringify([...hidden])); } catch (e) {} };
+
+function render() {
+  const q = $("q").value.trim().toLowerCase(), lang = $("lang").value, sort = $("sort").value, forks = $("forks").checked, showHidden = $("showhidden").checked;
+  const n = repos.filter(r => hidden.has(r.name)).length;
+  $("hcount").textContent = n ? `Voir les masqués (${n})` : "Voir les masqués";
+  const onlyTopic = $("onlytopic").checked;
+  let out = repos.filter(r => (showHidden || !hidden.has(r.name))
+    && (!onlyTopic || (r.topics || []).includes("portfolio"))
+    && (forks || !r.fork)
+    && (!lang || r.language === lang)
+    && (!q || (r.name + " " + (r.description || "")).toLowerCase().includes(q)));
+  const by = {
+    updated: (a, b) => new Date(b.pushed_at) - new Date(a.pushed_at),
+    created: (a, b) => new Date(b.created_at) - new Date(a.created_at),
+    stars: (a, b) => b.stargazers_count - a.stargazers_count,
+    name: (a, b) => a.name.localeCompare(b.name)
+  };
+  out.sort(by[sort]);
+  if (!out.length) return show("Aucun projet ne correspond à ces filtres.");
+  $("list").innerHTML = out.map(r => `
+    <article class="repo ${hidden.has(r.name) ? "is-hidden" : ""}">
+      <h2><a href="${esc(appUrl(r))}" target="_blank" rel="noopener">${esc(r.name)}</a> ${r.fork ? '<span class="tag">fork</span>' : ""}</h2>
+      <p>${esc(r.description) || "Pas de description."}</p>
+      <div class="meta">
+        ${r.language ? `<span><i class="dot" style="background:${COLORS[r.language] || "#8a94a6"}"></i>${esc(r.language)}</span>` : ""}
+        <span>★ ${r.stargazers_count}</span>
+        <span>Modifié le ${fmtDate(r.pushed_at)}</span>
+      </div>
+      <div class="side">Créé le ${fmtDate(r.created_at)}<br><a href="${esc(r.html_url)}" target="_blank" rel="noopener">Voir le code</a><br><button type="button" class="hide" data-name="${esc(r.name)}">${hidden.has(r.name) ? "Réafficher" : "Masquer"}</button></div>
+    </article>`).join("");
+}
+
+$("form").addEventListener("submit", e => { e.preventDefault(); load($("user").value.trim()); });
+["q", "lang", "sort", "forks", "showhidden", "onlytopic"].forEach(id => $(id).addEventListener("input", render));
+$("list").addEventListener("click", e => {
+  const b = e.target.closest(".hide");
+  if (!b) return;
+  const name = b.dataset.name;
+  hidden.has(name) ? hidden.delete(name) : hidden.add(name);
+  saveHidden();
+  render();
+});
+
+try { const saved = localStorage.getItem("gh-user"); if (saved) { $("user").value = saved; load(saved); } } catch (e) {}
+</script>
+</body>
+</html>
