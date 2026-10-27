@@ -169,7 +169,12 @@ $("list").addEventListener("click", e => {
   render();
 });
 
-try { const saved = localStorage.getItem("gh-user"); if (saved) { $("user").value = saved; load(saved); } } catch (e) {}
+// Nom d’utilisateur par défaut : écrivez-le entre les guillemets, par exemple "monpseudo"
+const DEFAULT_USER = "didierdu11";
+
+let start = DEFAULT_USER;
+try { start = start || localStorage.getItem("gh-user") || ""; } catch (e) {}
+if (start) { $("user").value = start; load(start); }
 </script>
 </body>
 </html>
